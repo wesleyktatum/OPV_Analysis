@@ -31,9 +31,14 @@ import plotly.graph_objs as go
 
 class panel(wx.Panel):
     def __init__(self, parent, data, vals):
+<<<<<<< HEAD:OPV_wx_GUI_Lena.py
         wx.Panel.__init__(self, parent=parent, style=wx.BORDER_RAISED,
                           size=(100, 300))
         
+=======
+        wx.Panel.__init__(self, parent=parent, style=wx.BORDER_SUNKEN, size=(100, 50))
+
+>>>>>>> upstream/master:OPV_wx_GUI.py
         PCE = vals[0]
         VocL = vals[1]
         JscL = vals[2]
@@ -48,24 +53,33 @@ class panel(wx.Panel):
                 cell_text.append(['%1.1f' % datas[row]])
             else:
                 cell_text.append(['%1.2f' % datas[row]])
-                
+
         zeros = np.zeros(len(data[:, 0]))
-        
-        self.figure, self.axes = plt.subplots(figsize = (4,4))
+
+        self.figure, self.axes = plt.subplots(figsize=(4, 4))
         mpl.rc('axes', linewidth=3)
         self.axes.plot(data[:, 0], data[:, 2], linewidth=3.0)
+<<<<<<< HEAD:OPV_wx_GUI_Lena.py
         self.axes.plot([0, 1.3], [0, 0], color='.5', linestyle='--',
                        linewidth=2)
         self.axes.plot(zeros, data[:, 2], c = 'k')
         self.axes.plot(data[:, 0], zeros, c = 'k')
+=======
+        self.axes.plot([0, 1.3], [0, 0], color='.5', linestyle='--', linewidth=2)
+        self.axes.plot(zeros, data[:, 2], c='k')
+        self.axes.plot(data[:, 0], zeros, c='k')
+>>>>>>> upstream/master:OPV_wx_GUI.py
         self.axes.set_xlabel('$Voltage\ [V]$')
         self.axes.set_ylabel('$Current\ Density\ [mA/cm^2]$')
         self.axes.set_xlim([-0.2, 0.8])
         self.axes.set_ylim([-5, 20])
+<<<<<<< HEAD:OPV_wx_GUI_Lena.py
         self.axes.table(cellText=cell_text, rowLabels=rows, loc='bottom',
                         bbox=[0.3, 0.5, 0.6, 0.4])
+=======
+        self.axes.table(cellText=cell_text, rowLabels=rows, loc='bottom', bbox=[0.45, 0.4, 0.15, 0.4])
+>>>>>>> upstream/master:OPV_wx_GUI.py
         self.axes.tick_params(which='both', width=3, length=10)
-        
         self.canvas = FigureCanvas(self, -1, self.figure)
         
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -106,10 +120,16 @@ class Main(wx.Frame):
                           style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
 
 
+<<<<<<< HEAD:OPV_wx_GUI_Lena.py
         self.plots = [0,0,0,0,0,0,0,0]
         self.vals = [0,0,0,0,0,0,0,0]
         self.list_ctrl = wx.ListCtrl(self,
                                      style=wx.LC_REPORT | wx.BORDER_SUNKEN)
+=======
+        self.plots = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.vals = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.list_ctrl = wx.ListCtrl(self, style=wx.LC_REPORT | wx.BORDER_SUNKEN)
+>>>>>>> upstream/master:OPV_wx_GUI.py
         self.list_ctrl.InsertColumn(0, 'Filename')
 
         self.plots = self.onOpenDirectory()
@@ -118,7 +138,6 @@ class Main(wx.Frame):
         # btn.Bind(wx.EVT_BUTTON, self.onOpenDirectory)
         btn = wx.Button(self, label="Export Values")
         btn.Bind(wx.EVT_BUTTON, self.onClick(self.vals))
-
 
         sizer = wx.BoxSizer(wx.VERTICAL)
         sizer.Add(self.list_ctrl, 1, wx.ALL | wx.EXPAND, 5)
@@ -191,9 +210,14 @@ class Main(wx.Frame):
         return self.plots
 
     def calcVals(self, plots):
+<<<<<<< HEAD:OPV_wx_GUI_Lena.py
         for i in range(0,8):
             JVinterp = interp1d(self.plots[i][:, 0], self.plots[i][:, 2],
                                 kind='cubic', bounds_error=False,
+=======
+        for i in range(0, 8):
+            JVinterp = interp1d(self.plots[i][:, 0], self.plots[i][:, 2], kind='cubic', bounds_error=False,
+>>>>>>> upstream/master:OPV_wx_GUI.py
                                 fill_value='extrapolate')
             JscL = -JVinterp(0)
             VocL = fsolve(JVinterp, .95 * max(self.plots[i][:, 0]))
@@ -206,7 +230,6 @@ class Main(wx.Frame):
     def updateDisplay(self, folder_path):
         paths = glob.glob(self.folder_path + "/*.liv1")
         for i in range(0, 8):
-
             self.plots[i] = pd.read_csv(paths[i], delimiter='\t', header=None)
             idx_end = self.plots[i][self.plots[i].iloc[:, 0] == 'Jsc:'].index[0]
             self.plots[i] = self.plots[i].iloc[:idx_end - 1, :]
@@ -220,6 +243,7 @@ class Main(wx.Frame):
         for index, pth in enumerate(paths):
             self.list_ctrl.InsertItem(index, os.path.basename(pth))
         return self.folder_path
+
 
 app = wx.App(redirect=False)
 frame = Main()
