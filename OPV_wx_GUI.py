@@ -8,6 +8,7 @@ import glob
 import os
 import wx
 import wx.lib.agw.multidirdialog as MDD
+import wx.lib.scrolledpanel # I though I am going to use it, but not yet - Lena
 import numpy as np
 import pandas as pd
 import math
@@ -30,7 +31,8 @@ import plotly.graph_objs as go
 
 class panel(wx.Panel):
     def __init__(self, parent, data, vals):
-        wx.Panel.__init__(self, parent=parent, style=wx.BORDER_SUNKEN, size=(100, 50))
+        wx.Panel.__init__(self, parent=parent, style=wx.BORDER_SUNKEN,
+                          size=(100, 50))
 
         PCE = vals[0]
         VocL = vals[1]
@@ -38,7 +40,8 @@ class panel(wx.Panel):
         FF = vals[3]
         datas = [PCE, VocL, JscL, FF]
         n_rows = len(datas)
-        rows = ['$PCE\ [\%]$', '$V_{OC}\ [V]$', '$J_{SC}\ [mA/cm^2]$', '$FF\ [\%]$']
+        rows = ['$PCE\ [\%]$', '$V_{OC}\ [V]$', '$J_{SC}\ [mA/cm^2]$',
+                '$FF\ [\%]$']
         cell_text = []
         for row in range(n_rows):
             if row != 1:
@@ -51,27 +54,64 @@ class panel(wx.Panel):
         self.figure, self.axes = plt.subplots(figsize=(4, 4))
         mpl.rc('axes', linewidth=3)
         self.axes.plot(data[:, 0], data[:, 2], linewidth=3.0)
-        self.axes.plot([0, 1.3], [0, 0], color='.5', linestyle='--', linewidth=2)
+        self.axes.plot([0, 1.3], [0, 0], color='.5', linestyle='--',
+                       linewidth=2)
         self.axes.plot(zeros, data[:, 2], c='k')
         self.axes.plot(data[:, 0], zeros, c='k')
         self.axes.set_xlabel('$Voltage\ [V]$')
         self.axes.set_ylabel('$Current\ Density\ [mA/cm^2]$')
         self.axes.set_xlim([-0.2, 0.8])
         self.axes.set_ylim([-5, 20])
-        self.axes.table(cellText=cell_text, rowLabels=rows, loc='bottom', bbox=[0.45, 0.4, 0.15, 0.4])
+        self.axes.table(cellText=cell_text, rowLabels=rows, loc='bottom',
+                        bbox=[0.45, 0.4, 0.15, 0.4])
         self.axes.tick_params(which='both', width=3, length=10)
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.canvas, 1, wx.EXPAND)
         self.SetSizer(self.sizer)
+        
+        # Added a checkbox for future including/excluding from calculation
+        self.checkbox = wx.CheckBox(self, label = 'Check Box') 	
+        self.Bind(wx.EVT_CHECKBOX,self.onChecked)
+        self.sizer.Add(self.checkbox, 0, wx.ALIGN_RIGHT)
+        
+        # Added a button for future functions we will want to assign to it
+        self.button = wx.Button(self, -1, "Click Me") 
+        self.button.Bind(wx.EVT_BUTTON, self.OnClicked) 
+        self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT)
+
+    # Defined a button
+    def OnClicked(self, event): 
+        button = event.GetEventObject().GetLabel() 
+        print ("Label of pressed button = ", button)
+    
+    # Defined a checkbox
+    def onChecked(self, event): 
+        checkbox = event.GetEventObject() 
+        print (checkbox.GetLabel(),' is clicked', checkbox.GetValue())
+
+
 
 class Main(wx.Frame):
     def __init__(self):
-        wx.Frame.__init__(self, parent=None, title="JV Curves", size=(1300, 800))
+        # retrieving the screen size so that our window is on full screen
+        screenSize = wx.DisplaySize()
+        screenWidth = screenSize[0]
+        screenHeight = screenSize[1]
+
+        # I am adding a comment to below few rows and adding 
+        #wx.Frame.__init__(self, parent=None, title="JV Curves",
+         #                 size=(1300, 800))
+        
+        # New Frame definition
+        wx.Frame.__init__(self, parent=None, title="JV Curves",
+                          size=screenSize,
+                          style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
 
         self.plots = [0, 0, 0, 0, 0, 0, 0, 0]
         self.vals = [0, 0, 0, 0, 0, 0, 0, 0]
-        self.list_ctrl = wx.ListCtrl(self, style=wx.LC_REPORT | wx.BORDER_SUNKEN)
+        self.list_ctrl = wx.ListCtrl(self,
+                                     style=wx.LC_REPORT | wx.BORDER_SUNKEN)
         self.list_ctrl.InsertColumn(0, 'Filename')
 
         self.plots = self.onOpenDirectory()
@@ -115,7 +155,8 @@ class Main(wx.Frame):
         return_text = ['PCE ', ' VocL ', ' Jsc ', ' FF ']
         total_return = []
         filename = "output"
-        np.savetxt(filename, self.vals, delimiter=" ", fmt="%s", header='PCE, VocL, Jsc, FF')
+        np.savetxt(filename, self.vals, delimiter=" ", fmt="%s",
+                   header='PCE, VocL, Jsc, FF')
 
     def onOpenDirectory(self):
         dlg = wx.DirDialog(self, "Choose a directory:")
@@ -127,7 +168,8 @@ class Main(wx.Frame):
 
     def calcVals(self, plots):
         for i in range(0, 8):
-            JVinterp = interp1d(self.plots[i][:, 0], self.plots[i][:, 2], kind='cubic', bounds_error=False,
+            JVinterp = interp1d(self.plots[i][:, 0], self.plots[i][:, 2],
+                                kind='cubic', bounds_error=False,
                                 fill_value='extrapolate')
             JscL = -JVinterp(0)
             VocL = fsolve(JVinterp, .95 * max(self.plots[i][:, 0]))
