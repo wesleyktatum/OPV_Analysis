@@ -109,7 +109,7 @@ class Main(wx.Frame):
                           style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
 
         self.plots = [0, 0, 0, 0, 0, 0, 0, 0]
-        self.vals = [0, 0, 0, 0, 0, 0, 0, 0]
+        self.vals = [0, 0, 0, 0, 0, 0, 0, 0, [0, 0, 0, 0]]
         self.list_ctrl = wx.ListCtrl(self,
                                      style=wx.LC_REPORT | wx.BORDER_SUNKEN)
         self.list_ctrl.InsertColumn(0, 'Filename')
@@ -156,7 +156,7 @@ class Main(wx.Frame):
         total_return = []
         filename = "output"
         np.savetxt(filename, self.vals, delimiter=" ", fmt="%s",
-                   header='PCE, VocL, Jsc, FF')
+                   header='PCE, VocL, Jsc, FF -- Final row is computed average')
 
     def onOpenDirectory(self):
         dlg = wx.DirDialog(self, "Choose a directory:")
@@ -177,6 +177,8 @@ class Main(wx.Frame):
             PCE = -PPV * JVinterp(PPV)
             FF = PCE / (JscL * VocL) * 100
             self.vals[i] = [PCE.item(), VocL.item(), JscL.item(), FF.item()]
+            self.vals[8] = [self.vals[8][0] + .125*PCE.item(), self.vals[8][1] + .125*VocL.item(),
+                            self.vals[8][2] + .125*JscL.item(), self.vals[8][3] + .125*FF.item()]
         return self.vals
 
     def updateDisplay(self, folder_path):
