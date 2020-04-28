@@ -8,7 +8,7 @@ import glob
 import os
 import wx
 import wx.lib.agw.multidirdialog as MDD
-import wx.lib.scrolledpanel # I though I am going to use it, but not yet - Lena
+import wx.lib.scrolledpanel as scrolled
 import numpy as np
 import pandas as pd
 import math
@@ -30,9 +30,12 @@ import plotly.graph_objs as go
 
 
 class panel(wx.Panel):
-    def __init__(self, parent, data, vals):
+    def __init__(self, parent, data, vals, color='grey'):
         wx.Panel.__init__(self, parent=parent, style=wx.BORDER_SUNKEN,
-                          size=(100, 50))
+                          size=(500, 300))
+
+        self.SetMinSize((500, 300))
+        self.SetBackgroundColour(color)
 
         PCE = vals[0]
         VocL = vals[1]
@@ -66,65 +69,52 @@ class panel(wx.Panel):
                         bbox=[0.45, 0.4, 0.15, 0.4])
         self.axes.tick_params(which='both', width=3, length=10)
         self.canvas = FigureCanvas(self, -1, self.figure)
+
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.canvas, 1, wx.EXPAND)
+        self.sizer.Add(self.canvas, 1, wx.ALL | wx.GROW)
         self.SetSizer(self.sizer)
-        
+
         # Added a checkbox for future including/excluding from calculation
-        self.checkbox = wx.CheckBox(self, label = 'Check Box') 	
-        self.Bind(wx.EVT_CHECKBOX,self.onChecked)
+        self.checkbox = wx.CheckBox(self, label='Check Box')
+        self.Bind(wx.EVT_CHECKBOX, self.onChecked)
         self.sizer.Add(self.checkbox, 0, wx.ALIGN_RIGHT)
-        
+
         # Added a button for future functions we will want to assign to it
-        self.button = wx.Button(self, -1, "Click Me") 
-        self.button.Bind(wx.EVT_BUTTON, self.OnClicked) 
+        self.button = wx.Button(self, -1, "Click Me")
+        self.button.Bind(wx.EVT_BUTTON, self.OnClicked)
         self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT)
 
     # Defined a button
-    def OnClicked(self, event): 
-        button = event.GetEventObject().GetLabel() 
-        print ("Label of pressed button = ", button)
-    
+    def OnClicked(self, event):
+        button = event.GetEventObject().GetLabel()
+        print("Label of pressed button = ", button)
+
     # Defined a checkbox
-    def onChecked(self, event): 
-        checkbox = event.GetEventObject() 
-        print (checkbox.GetLabel(),' is clicked', checkbox.GetValue())
+    def onChecked(self, event):
+        checkbox = event.GetEventObject()
+        print(checkbox.GetLabel(), ' is clicked', checkbox.GetValue())
 
 
+# Created a panel of 8 panels
+class BigPanel(wx.Panel):
+    def __init__(self, parent, id=wx.ID_ANY, style=wx.BORDER_SUNKEN):
+        wx.Panel.__init__(self, parent=parent, style=style,
+                          size=(1000, 1400))
 
-class Main(wx.Frame):
-    def __init__(self):
-        # retrieving the screen size so that our window is on full screen
-        screenSize = wx.DisplaySize()
-        screenWidth = screenSize[0]
-        screenHeight = screenSize[1]
-
-        # I am adding a comment to below few rows and adding 
-        #wx.Frame.__init__(self, parent=None, title="JV Curves",
-         #                 size=(1300, 800))
-        
-        # New Frame definition
-        wx.Frame.__init__(self, parent=None, title="JV Curves",
-                          size=screenSize,
-                          style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
+        sizer = wx.BoxSizer(wx.VERTICAL)
 
         self.plots = [0, 0, 0, 0, 0, 0, 0, 0]
         self.vals = [0, 0, 0, 0, 0, 0, 0, 0, [0, 0, 0, 0]]
+
         self.list_ctrl = wx.ListCtrl(self,
                                      style=wx.LC_REPORT | wx.BORDER_SUNKEN)
         self.list_ctrl.InsertColumn(0, 'Filename')
 
         self.plots = self.onOpenDirectory()
         self.vals = self.calcVals(self.plots)
-        # btn = wx.Button(self, label="Open Folder")
-        # btn.Bind(wx.EVT_BUTTON, self.onOpenDirectory)
-        btn = wx.Button(self, label="Export Values")
-        btn.Bind(wx.EVT_BUTTON, self.onClick(self.vals))
 
-        sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.list_ctrl, 1, wx.ALL | wx.EXPAND, 5)
-        sizer.Add(btn, 0, wx.ALL | wx.CENTER, 5)
-        self.SetSizer(sizer)
+        btn = wx.Button(self, label="Export Values")
+        btn.Bind(wx.EVT_BUTTON, self.onClick)
 
         self.sp = wx.SplitterWindow(self)
         panel1 = panel(self.sp, self.plots[0], self.vals[0])
@@ -143,26 +133,23 @@ class Main(wx.Frame):
         panel8 = panel(self.sp4, self.plots[7], self.vals[7])
         self.sp4.SplitVertically(panel7, panel8)
 
+        sizer.Add(self.list_ctrl, 1, wx.ALL | wx.EXPAND, 5)
+        sizer.Add(btn, 0, wx.ALL | wx.CENTER, 5)
+
         sizer.Add(self.sp, 1, wx.EXPAND)
         sizer.Add(self.sp2, 1, wx.EXPAND)
         sizer.Add(self.sp3, 1, wx.EXPAND)
         sizer.Add(self.sp4, 1, wx.EXPAND)
 
+        self.SetSizer(sizer)
         self.SetAutoLayout(True)
         self.Layout()
-
-    def onClick(self, vals):
-        return_text = ['PCE ', ' VocL ', ' Jsc ', ' FF ']
-        total_return = []
-        filename = "output"
-        np.savetxt(filename, self.vals, delimiter=" ", fmt="%s",
-                   header='PCE, VocL, Jsc, FF -- Final row is computed average')
 
     def onOpenDirectory(self):
         dlg = wx.DirDialog(self, "Choose a directory:")
         if dlg.ShowModal() == wx.ID_OK:
             self.folder_path = dlg.GetPath()
-            Main.updateDisplay(self, self.folder_path)
+            BigPanel.updateDisplay(self, self.folder_path)
         dlg.Destroy()
         return self.plots
 
@@ -177,19 +164,22 @@ class Main(wx.Frame):
             PCE = -PPV * JVinterp(PPV)
             FF = PCE / (JscL * VocL) * 100
             self.vals[i] = [PCE.item(), VocL.item(), JscL.item(), FF.item()]
-            self.vals[8] = [self.vals[8][0] + .125*PCE.item(), self.vals[8][1] + .125*VocL.item(),
-                            self.vals[8][2] + .125*JscL.item(), self.vals[8][3] + .125*FF.item()]
+            self.vals[8] = [self.vals[8][0] + .125*PCE.item(), self.vals[8][1]
+                            + .125*VocL.item(), self.vals[8][2] +
+                            .125*JscL.item(), self.vals[8][3] + .125*FF.item()]
         return self.vals
 
     def updateDisplay(self, folder_path):
         paths = glob.glob(self.folder_path + "/*.liv1")
         for i in range(0, 8):
             self.plots[i] = pd.read_csv(paths[i], delimiter='\t', header=None)
-            idx_end = self.plots[i][self.plots[i].iloc[:, 0] == 'Jsc:'].index[0]
+            idx_end = self.plots[i][self.plots[i].iloc[:, 0] ==
+                                    'Jsc:'].index[0]
             self.plots[i] = self.plots[i].iloc[:idx_end - 1, :]
             self.plots[i].iloc[:, 0] = pd.to_numeric(self.plots[i].iloc[:, 0])
             self.plots[i] = np.array(self.plots[i])
-            self.plots[i] = np.insert(self.plots[i], 2, -self.plots[i][:, 1], axis=1)
+            self.plots[i] = np.insert(self.plots[i], 2, -self.plots[i][:, 1],
+                                      axis=1)
 
             # self.plots[i] = np.loadtxt(paths[i], delimiter='\t',
             #                            max_rows=34)
@@ -197,6 +187,48 @@ class Main(wx.Frame):
         for index, pth in enumerate(paths):
             self.list_ctrl.InsertItem(index, os.path.basename(pth))
         return self.folder_path
+
+    def onClick(self):
+        filename = "output"
+        np.savetxt(filename)
+
+
+# Converted the "panel of panels" above to a scrolled panel:
+class ScrolledPanel(scrolled.ScrolledPanel):
+    def __init__(self, parent):
+        scrolled.ScrolledPanel.__init__(self, parent, size=(400, 400))
+
+        bigpanel = BigPanel(self)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(bigpanel, 1, wx.ALL | wx.EXPAND, 5)
+
+        self.SetSizer(sizer)
+        self.SetAutoLayout(1)
+        self.SetupScrolling()
+
+
+# Main Frame now only has a scrolled panel
+class Main(wx.Frame):
+    def __init__(self):
+        # retrieving the screen size so that our window is on full screen
+
+        screenSize = wx.DisplaySize()
+        screenWidth = screenSize[0]
+        screenHeight = screenSize[1]
+
+        wx.Frame.__init__(self, parent=None, title="JV Curves",
+                          size=screenSize,
+                          style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
+
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        scroll = ScrolledPanel(self)
+
+        sizer.Add(scroll, 1, wx.ALL | wx.EXPAND, 5)
+
+        self.SetSizer(sizer)
+        self.SetAutoLayout(True)
+        self.Layout()
 
 
 app = wx.App(redirect=False)
