@@ -1,43 +1,49 @@
-import matplotlib
-matplotlib.use('WXAgg')
-from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
+# Imports Alphabetically:
+from decimal import Decimal
 from matplotlib.backends.backend_wx import NavigationToolbar2Wx
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
-import wx
-import glob
-import os
-import wx
-import wx.lib.agw.multidirdialog as MDD
-import wx.lib.scrolledpanel as scrolled
-import numpy as np
-import pandas as pd
-import math
-from scipy.optimize import fsolve
-from scipy.optimize import fmin
-from scipy.interpolate import interp1d
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import pandas as pd
-import os
 from os import listdir
+from scipy import stats
+from scipy.interpolate import interp1d
+from scipy.optimize import fmin
+from scipy.optimize import fsolve
+from textwrap import dedent as d
 import base64
 import datetime
+import glob
 import io
-from textwrap import dedent as d
-from scipy import stats
-from decimal import Decimal
+import math
+import matplotlib
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import pandas as pd
 import plotly.graph_objs as go
+import sys
+import wx
+import wx.html
+import wx.lib.agw.multidirdialog as MDD
+import wx.lib.scrolledpanel as scrolled
+matplotlib.use('WXAgg')
 
-# I am adding comments to code below, so that we could understand later
-# what's going on
+# Adding comments to code below, to understand later what's going on:
+
+# This is a text to be used in a "About" menu button:
+aboutText = """<p>Sorry, there is no information about this program. It is
+running on version %(wxpy)s of <b>wxPython</b> and %(python)s of <b>Python</b>.
+See <a href="http://wiki.wxpython.org">wxPython Wiki</a></p>"""
+
 
 # Defining a basic panel:
 class panel(wx.Panel):
     def __init__(self, parent, data, vals):
         wx.Panel.__init__(self, parent=parent, style=wx.BORDER_SUNKEN,
-                          size=(500, 350))
+                          size=(500, 500))
 
-        self.SetMinSize((500, 350))
+        self.SetMinSize((500, 500))
+        self.SetBackgroundColour("#b7a57a")
 
         # Defining data for plots:
         PCE = vals[0]
@@ -48,44 +54,57 @@ class panel(wx.Panel):
         n_rows = len(datas)
         rows = ['$PCE\ [\%]$', '$V_{OC}\ [V]$', '$J_{SC}\ [mA/cm^2]$',
                 '$FF\ [\%]$']
-        cell_text = []  # this list will hold actual values for parameters
+        cell_text = []  # this list will hold the values for the parameters
         for row in range(n_rows):
             if row != 1:
                 cell_text.append(['%1.1f' % datas[row]])
             else:
                 cell_text.append(['%1.2f' % datas[row]])
 
-        # Here I am rearranging the data to get nicer table next to plot
+        # Rearranging the data for the table next to the plot:
         flat_list = []
         for sublist in cell_text:
             for item in sublist:
                 flat_list.append(item)
         tabledata = list(zip(rows, flat_list))
 
-        zeros = np.zeros(len(data[:, 0]))
-
         # Plotting:
         self.figure, self.axes = plt.subplots(figsize=(4, 4))
-        mpl.rc('axes', linewidth=3)
-        self.axes.plot(data[:, 0], data[:, 2], linewidth=3.0)
-        self.axes.plot([0, 1.3], [0, 0], color='.5', linestyle='--',
-                       linewidth=2)
-        self.axes.plot(zeros, data[:, 2], c='k')
-        self.axes.plot(data[:, 0], zeros, c='k')
+        mpl.rc('axes', linewidth=2)
+
+        # This is the JV curve drawn from the actual data:
+        self.axes.plot(data[:, 0], data[:, 2], linewidth=2, zorder=4)
+
+        # This is to highlight x-Axis on the plot area:
+        self.axes.plot([-1, 1.3], [0, 0], color='k', linestyle='-',
+                       linewidth=2, zorder=2)
+
+        # This is to highlight y-Axis on the plot area:
+        self.axes.plot([0, 0], [-10, 30], color='k', linestyle='-',
+                       linewidth=2, zorder=3)
+
+        # Plot design:
         self.axes.set_xlabel('$Voltage\ [V]$')
         self.axes.set_ylabel('$Current\ Density\ [mA/cm^2]$')
         self.axes.set_xlim([-0.2, 0.8])
         self.axes.set_ylim([-5, 20])
-        self.axes.tick_params(which='both', width=3, length=10)
+        self.axes.minorticks_on()
+        self.axes.tick_params(which='major', axis='both', width=1, length=5)
+        self.axes.tick_params(which='minor', axis='both', width=1, length=2)
+        self.axes.grid(which='major', axis='both', color='grey',
+                       linestyle='--', linewidth=1, zorder=1)
 
-        # Adding a table to the plot
+        # Adding a table to the plot:
+        cellcolors = [['#b7a57a', 'w'], ['#b7a57a', 'w'], ['#b7a57a', 'w'],
+                      ['#b7a57a', 'w']]
         self.axes.table(cellText=tabledata,
-                        rowLoc='center', colLoc='left',
-                        bbox=[0.3, 0.45, 0.5, 0.4])
+                        cellLoc='center', cellColours=cellcolors,
+                        bbox=[0.25, 0.5, 0.5, 0.4], zorder=5)
 
-        # Defining the whole plotting area:
+        # Defining sizer:
         self.sizer = wx.BoxSizer(wx.VERTICAL)
 
+        # Defining the whole plotting area:
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.sizer.Add(self.canvas, 1, wx.ALL | wx.GROW)
 
@@ -127,6 +146,7 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         self.list_ctrl = wx.ListCtrl(self,
                                      style=wx.LC_REPORT | wx.BORDER_SUNKEN)
         self.list_ctrl.InsertColumn(0, 'Filename')
+
         self.plots = self.onOpenDirectory()
         self.vals = self.calcVals(self.plots)
 
@@ -219,10 +239,60 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         np.savetxt(filename)
 
 
+# Genetal class for a pop-up window:
+class HtmlWindow(wx.html.HtmlWindow):
+    def __init__(self, parent, id, size=(600, 400)):
+        wx.html.HtmlWindow.__init__(self, parent, id, size=size)
+        if "gtk2" in wx.PlatformInfo:
+            self.SetStandardFonts()
+
+    def OnLinkClicked(self, link):
+        wx.LaunchDefaultBrowser(link.GetHref())
+
+
+# A class for a "about" message box:
+class AboutBox(wx.Dialog):
+    def __init__(self):
+        wx.Dialog.__init__(self, None, -1, "About OPV Analysis UI",
+                           style=wx.DEFAULT_DIALOG_STYLE |
+                           wx.RESIZE_BORDER |
+                           wx.TAB_TRAVERSAL)
+        hwin = HtmlWindow(self, -1, size=(400, 200))
+        vers = {}
+        vers["python"] = sys.version.split()[0]
+        vers["wxpy"] = wx.VERSION_STRING
+        hwin.SetPage(aboutText % vers)
+        # btn = hwin.FindWindowById(wx.ID_OK)
+        irep = hwin.GetInternalRepresentation()
+        hwin.SetSize((irep.GetWidth()+25, irep.GetHeight()+10))
+        self.SetClientSize(hwin.GetSize())
+        self.CentreOnParent(wx.BOTH)
+        self.SetFocus()
+
+
+# New class, not in use yet, supposed to hold a list of filenames
+# Not finished:
+class FileNameBox(wx.Dialog):
+    def __init__(self):
+        wx.Dialog.__init__(self, None, -1, "File Names",
+                           style=wx.DEFAULT_DIALOG_STYLE |
+                           wx.RESIZE_BORDER |
+                           wx.TAB_TRAVERSAL)
+        hwin = HtmlWindow(self, -1, size=(400, 400))
+        hwin.SetPage("File Names will be here")
+        # btn = hwin.FindWindowById(wx.ID_OK)
+        irep = hwin.GetInternalRepresentation()
+        hwin.SetSize((irep.GetWidth()+25, irep.GetHeight()+10))
+        self.SetClientSize(hwin.GetSize())
+        self.CentreOnParent(wx.BOTH)
+        self.SetFocus()
+
+
 # Main Frame now only has a scrolled panel
 class Main(wx.Frame):
     def __init__(self):
-        # retrieving the screen size so that our window is on full screen
+        # Retrieving the screen size so that our window is on full screen
+        # Later I want to find a way how to make it Global variables:
         screenSize = wx.DisplaySize()
         # screenWidth = screenSize[0]
         # screenHeight = screenSize[1]
@@ -231,14 +301,63 @@ class Main(wx.Frame):
                           size=screenSize,
                           style=wx.DEFAULT_FRAME_STYLE ^ wx.RESIZE_BORDER)
 
+        self.SetBackgroundColour("#4b2e83")
+
         # Define sizer:
         sizer = wx.BoxSizer(wx.VERTICAL)
+
+        # Define Menu bar
+        menuBar = wx.MenuBar()
+        menu = wx.Menu()
+        m_exit = menu.Append(wx.ID_EXIT, "E&xit\tAlt-X",
+                             "Close window and exit program.")
+        self.Bind(wx.EVT_MENU, self.OnClose, m_exit)
+        menuBar.Append(menu, "&File")
+
+        menu = wx.Menu()
+        m_about = menu.Append(wx.ID_ABOUT, "&About",
+                              "Information about this program")
+        self.Bind(wx.EVT_MENU, self.OnAbout, m_about)
+        menuBar.Append(menu, "&Help")
+        self.SetMenuBar(menuBar)
+        self.statusbar = self.CreateStatusBar()
+
+        m_text = wx.StaticText(self, -1, "This can be a welcome message")
+        m_text.SetFont(wx.Font(14, wx.SWISS, wx.NORMAL, wx.BOLD))
+        m_text.SetSize(m_text.GetBestSize())
+        m_text.SetForegroundColour('#ffffff')
+        sizer.Add(m_text, 0, wx.ALL, 10)
+
+        m_close = wx.Button(self, wx.ID_CLOSE, "Exit")
+        m_close.Bind(wx.EVT_BUTTON, self.OnClose)
+        # m_close.SetBackgroundColour(wx.Colour('#ffffff'))
+        # m_close.SetWindowStyleFlag(wx.SIMPLE_BORDER)
+        sizer.Add(m_close, 0, wx.ALL, 10)
+
+        # Define scroll bar
         scroll = ScrolledPanel(self)
         sizer.Add(scroll, 1, wx.ALL | wx.EXPAND, 5)
 
         self.SetSizer(sizer)
         self.SetAutoLayout(True)
         self.Layout()
+
+    # Function that closes a window:
+    def OnClose(self, event):
+        dlg = wx.MessageDialog(self,
+                               "Do you really want to close this application?",
+                               "Confirm Exit", wx.OK | wx.CANCEL |
+                               wx.ICON_QUESTION)
+        result = dlg.ShowModal()
+        dlg.Destroy()
+        if result == wx.ID_OK:
+            self.Destroy()
+
+    # Function for "About option in Menu
+    def OnAbout(self, event):
+        dlg = AboutBox()
+        dlg.ShowModal()
+        dlg.Destroy()
 
 
 app = wx.App(redirect=False)
