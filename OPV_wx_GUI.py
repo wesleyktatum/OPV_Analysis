@@ -35,15 +35,17 @@ aboutText = """<p>Sorry, there is no information about this program. It is
 running on version %(wxpy)s of <b>wxPython</b> and %(python)s of <b>Python</b>.
 See <a href="http://wiki.wxpython.org">wxPython Wiki</a></p>"""
 
+flags = [1, 1, 1, 1, 1, 1, 1, 1]
 
 # Defining a basic panel:
 class panel(wx.Panel):
-    def __init__(self, parent, data, vals):
+    def __init__(self, parent, data, vals, number):
         wx.Panel.__init__(self, parent=parent, style=wx.BORDER_SUNKEN,
                           size=(500, 500))
 
         self.SetMinSize((500, 500))
         self.SetBackgroundColour("#b7a57a")
+        self.num = number
 
         # Defining data for plots:
         PCE = vals[0]
@@ -109,12 +111,7 @@ class panel(wx.Panel):
         self.sizer.Add(self.canvas, 1, wx.ALL | wx.GROW)
 
         # Added a checkbox for future including/excluding from calculation
-        self.checkbox = wx.CheckBox(self, label='Check Box')
-        self.Bind(wx.EVT_CHECKBOX, self.onChecked)
-        self.sizer.Add(self.checkbox, 0, wx.ALIGN_RIGHT)
-
-        # Added a button for future functions we will want to assign to it
-        self.button = wx.Button(self, -1, "Click Me")
+        self.button = wx.Button(self, -1, "Exclude from average")
         self.button.Bind(wx.EVT_BUTTON, self.OnClicked)
         self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT)
 
@@ -123,15 +120,10 @@ class panel(wx.Panel):
         self.SetAutoLayout(True)
         self.Layout()
 
-    # Defined a button
-    def OnClicked(self, event):
-        button = event.GetEventObject().GetLabel()
-        print("Label of pressed button = ", button)
-
     # Defined a checkbox
-    def onChecked(self, event):
-        checkbox = event.GetEventObject()
-        print(checkbox.GetLabel(), ' is clicked', checkbox.GetValue())
+    def OnClicked(self, num):
+        global flags
+        flags[self.num] = 0
 
 
 # Created a scrollable panel of 8 panels:
@@ -143,6 +135,8 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         # Define data for each one of 8 windows:
         self.plots = [0, 0, 0, 0, 0, 0, 0, 0]
         self.vals = [0, 0, 0, 0, 0, 0, 0, 0, [0, 0, 0, 0]]
+        self.number = [0, 1, 2, 3, 4, 5, 6, 7]
+
         self.list_ctrl = wx.ListCtrl(self,
                                      style=wx.LC_REPORT | wx.BORDER_SUNKEN)
         self.list_ctrl.InsertColumn(0, 'Filename')
@@ -156,20 +150,20 @@ class ScrolledPanel(scrolled.ScrolledPanel):
 
         # Define 8 split windows:
         self.sp = wx.SplitterWindow(self)
-        panel1 = panel(self.sp, self.plots[0], self.vals[0])
-        panel2 = panel(self.sp, self.plots[1], self.vals[1])
+        panel1 = panel(self.sp, self.plots[0], self.vals[0], self.number[0])
+        panel2 = panel(self.sp, self.plots[1], self.vals[1], self.number[1])
         self.sp.SplitVertically(panel1, panel2)
         self.sp2 = wx.SplitterWindow(self)
-        panel3 = panel(self.sp2, self.plots[2], self.vals[2])
-        panel4 = panel(self.sp2, self.plots[3], self.vals[3])
+        panel3 = panel(self.sp2, self.plots[2], self.vals[2], self.number[2])
+        panel4 = panel(self.sp2, self.plots[3], self.vals[3], self.number[3])
         self.sp2.SplitVertically(panel3, panel4)
         self.sp3 = wx.SplitterWindow(self)
-        panel5 = panel(self.sp3, self.plots[4], self.vals[4])
-        panel6 = panel(self.sp3, self.plots[5], self.vals[5])
+        panel5 = panel(self.sp3, self.plots[4], self.vals[4], self.number[4])
+        panel6 = panel(self.sp3, self.plots[5], self.vals[5], self.number[5])
         self.sp3.SplitVertically(panel5, panel6)
         self.sp4 = wx.SplitterWindow(self)
-        panel7 = panel(self.sp4, self.plots[6], self.vals[6])
-        panel8 = panel(self.sp4, self.plots[7], self.vals[7])
+        panel7 = panel(self.sp4, self.plots[6], self.vals[6], self.number[6])
+        panel8 = panel(self.sp4, self.plots[7], self.vals[7], self.number[7])
         self.sp4.SplitVertically(panel7, panel8)
 
         # Define sizer:
@@ -196,7 +190,7 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         dlg.Destroy()
         return self.plots
 
-    # Function to calculated values fron raw data:
+    # Function to calculated values from raw data:
     def calcVals(self, plots):
         for i in range(0, 8):
             JVinterp = interp1d(self.plots[i][:, 0], self.plots[i][:, 2],
@@ -208,9 +202,9 @@ class ScrolledPanel(scrolled.ScrolledPanel):
             PCE = -PPV * JVinterp(PPV)
             FF = PCE / (JscL * VocL) * 100
             self.vals[i] = [PCE.item(), VocL.item(), JscL.item(), FF.item()]
-            self.vals[8] = [self.vals[8][0] + .125*PCE.item(), self.vals[8][1]
-                            + .125*VocL.item(), self.vals[8][2] +
-                            .125*JscL.item(), self.vals[8][3] + .125*FF.item()]
+            self.vals[8] = [self.vals[8][0] + .125 * PCE.item(), self.vals[8][1]
+                            + .125 * VocL.item(), self.vals[8][2] +
+                            .125 * JscL.item(), self.vals[8][3] + .125 * FF.item()]
         return self.vals
 
     # Function to update file names (?):
@@ -234,9 +228,27 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         return self.folder_path
 
     # Function to output file names:
-    def onClick(self):
+    def onClick(self, vals):
         filename = "output"
-        np.savetxt(filename)
+        global flags
+        print(flags)
+        if sum(flags) != 8:
+            self.vals[8][0] *= 8
+            self.vals[8][1] *= 8
+            self.vals[8][2] *= 8
+            self.vals[8][3] *= 8
+            for i in range(0, 8):
+                if flags[i] == 0:
+                    self.vals[8][0] -= self.vals[i][0]
+                    self.vals[8][1] -= self.vals[i][1]
+                    self.vals[8][2] -= self.vals[i][2]
+                    self.vals[8][3] -= self.vals[i][3]
+            self.vals[8][0] /= sum(flags)
+            self.vals[8][1] /= sum(flags)
+            self.vals[8][2] /= sum(flags)
+            self.vals[8][3] /= sum(flags)
+        np.savetxt(filename, self.vals, delimiter=" ", fmt="%s",
+        header='PCE, VocL, Jsc, FF -- Final row is computed average')
 
 
 # Genetal class for a pop-up window:
