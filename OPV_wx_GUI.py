@@ -137,9 +137,9 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         self.vals = [0, 0, 0, 0, 0, 0, 0, 0, [0, 0, 0, 0]]
         self.number = [0, 1, 2, 3, 4, 5, 6, 7]
 
-        self.list_ctrl = wx.ListCtrl(self,
-                                     style=wx.LC_REPORT | wx.BORDER_SUNKEN)
-        self.list_ctrl.InsertColumn(0, 'Filename')
+        # self.list_ctrl = wx.ListCtrl(self,
+        #                              style=wx.LC_REPORT | wx.BORDER_SUNKEN)
+        # self.list_ctrl.InsertColumn(0, 'Filename')
 
         self.plots = self.onOpenDirectory()
         self.vals = self.calcVals(self.plots)
@@ -168,7 +168,7 @@ class ScrolledPanel(scrolled.ScrolledPanel):
 
         # Define sizer:
         sizer = wx.BoxSizer(wx.VERTICAL)
-        sizer.Add(self.list_ctrl, 0, wx.ALL | wx.EXPAND, 0)
+        # sizer.Add(self.list_ctrl, 0, wx.ALL | wx.EXPAND, 0)
         sizer.Add(btn, 0, wx.ALL | wx.CENTER, 0)
 
         sizer.Add(self.sp, 1, wx.EXPAND)
@@ -223,8 +223,8 @@ class ScrolledPanel(scrolled.ScrolledPanel):
             # self.plots[i] = np.loadtxt(paths[i], delimiter='\t',
             #                            max_rows=34)
             # self.plots[i] = self.plots[i] * -1
-        for index, pth in enumerate(paths):
-            self.list_ctrl.InsertItem(index, os.path.basename(pth))
+        # for index, pth in enumerate(paths):
+        #     self.list_ctrl.InsertItem(index, os.path.basename(pth))
         return self.folder_path
 
     # Function to output file names:
