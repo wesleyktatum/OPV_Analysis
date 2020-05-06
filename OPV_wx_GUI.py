@@ -35,7 +35,7 @@ of <b>wxPython</b> and %(python)s of <b>Python</b>. \
 See <a href='http://wiki.wxpython.org'>wxPython Wiki</a></p> for more \
 information about this platform."
 
-flags = [1, 1, 1, 1, 1, 1, 1, 1]
+flags = [1, 1, 1, 1, 1, 1, 1, 1]  # global variable
 
 
 # Defining a basic panel:
