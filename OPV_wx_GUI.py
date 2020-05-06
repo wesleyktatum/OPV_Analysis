@@ -28,24 +28,25 @@ import wx.lib.agw.multidirdialog as MDD
 import wx.lib.scrolledpanel as scrolled
 matplotlib.use('WXAgg')
 
-# Adding comments to code below, to understand later what's going on:
-
 # This is a text to be used in a "About" menu button:
-aboutText = """<p>Sorry, there is no information about this program. It is
-running on version %(wxpy)s of <b>wxPython</b> and %(python)s of <b>Python</b>.
-See <a href="http://wiki.wxpython.org">wxPython Wiki</a></p>"""
+aboutText = "<p>This program is a part of Luscombe Group OPV Analysis project \
+in University of Washington, Seattle. It is running on version %(wxpy)s \
+of <b>wxPython</b> and %(python)s of <b>Python</b>. \
+See <a href='http://wiki.wxpython.org'>wxPython Wiki</a></p> for more \
+information about this platform."
 
 flags = [1, 1, 1, 1, 1, 1, 1, 1]
+
 
 # Defining a basic panel:
 class panel(wx.Panel):
     def __init__(self, parent, data, vals, number):
         wx.Panel.__init__(self, parent=parent, style=wx.BORDER_SUNKEN,
-                          size=(500, 500))
+                          size=(500, 350))
 
-        self.SetMinSize((500, 500))
+        self.SetMinSize((500, 350))
         self.SetBackgroundColour("#b7a57a")
-        self.num = number
+        self.num = number  # This will serve as an index for our plots
 
         # Defining data for plots:
         PCE = vals[0]
@@ -71,18 +72,21 @@ class panel(wx.Panel):
         tabledata = list(zip(rows, flat_list))
 
         # Plotting:
-        self.figure, self.axes = plt.subplots(figsize=(4, 4))
+        self.figure, self.axes = plt.subplots(figsize=(4, 4),
+                                              facecolor='gainsboro')
         mpl.rc('axes', linewidth=2)
+        plt.tight_layout(h_pad=1.0)
+        plt.subplots_adjust(bottom=0.18)
 
         # This is the JV curve drawn from the actual data:
         self.axes.plot(data[:, 0], data[:, 2], linewidth=2, zorder=4)
 
         # This is to highlight x-Axis on the plot area:
-        self.axes.plot([-1, 1.3], [0, 0], color='k', linestyle='-',
+        self.axes.plot([-0.2, 0.8], [0, 0], color='k', linestyle='-',
                        linewidth=2, zorder=2)
 
         # This is to highlight y-Axis on the plot area:
-        self.axes.plot([0, 0], [-10, 30], color='k', linestyle='-',
+        self.axes.plot([0, 0], [-5, 20], color='k', linestyle='-',
                        linewidth=2, zorder=3)
 
         # Plot design:
@@ -108,22 +112,48 @@ class panel(wx.Panel):
 
         # Defining the whole plotting area:
         self.canvas = FigureCanvas(self, -1, self.figure)
-        self.sizer.Add(self.canvas, 1, wx.ALL | wx.GROW)
+        self.sizer.Add(self.canvas, 1, wx.ALL | wx.ALIGN_TOP | wx.EXPAND)
 
         # Added a checkbox for future including/excluding from calculation
-        self.button = wx.Button(self, -1, "Exclude from average")
-        self.button.Bind(wx.EVT_BUTTON, self.OnClicked)
-        self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT)
+        # self.checkbox = wx.CheckBox(self, label='Check Box')
+        # self.Bind(wx.EVT_CHECKBOX, self.onChecked)
+        # self.sizer.Add(self.checkbox, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+
+        # Added a button for excluding the plot from average:
+        # self.button = wx.Button(self, -1, "Exclude from average")
+        # self.button.Bind(wx.EVT_BUTTON, self.OnClicked)
+        # self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+
+        # Added a toggle button for including/excluding the plot from average:
+        self.button = wx.ToggleButton(self, -1, "Exclude from average")
+        self.button.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggle)
+        self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
 
         # Finishing the sizer setup:
         self.SetSizer(self.sizer)
         self.SetAutoLayout(True)
         self.Layout()
 
-    # Defined a checkbox
+    # Defined a button
     def OnClicked(self, num):
         global flags
         flags[self.num] = 0
+
+    def OnToggle(self, event):
+        state = event.GetEventObject().GetValue()
+
+        if state is True:
+            global flags
+            flags[self.num] = 0
+            event.GetEventObject().SetLabel("Include in average")
+        else:
+            flags[self.num] = 1
+            event.GetEventObject().SetLabel("Exclude from average")
+
+    # Defined a checkbox
+    # def onChecked(self, event):
+        # checkbox = event.GetEventObject()
+        # print(checkbox.GetLabel(), ' is clicked', checkbox.GetValue())
 
 
 # Created a scrollable panel of 8 panels:
@@ -145,8 +175,8 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         self.vals = self.calcVals(self.plots)
 
         # Add button to the top panel:
-        btn = wx.Button(self, label="Export Values")
-        btn.Bind(wx.EVT_BUTTON, self.onClick)
+        # btn = wx.Button(self, label="Export Values")
+        # btn.Bind(wx.EVT_BUTTON, self.onClick)
 
         # Define 8 split windows:
         self.sp = wx.SplitterWindow(self)
@@ -169,7 +199,7 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         # Define sizer:
         sizer = wx.BoxSizer(wx.VERTICAL)
         # sizer.Add(self.list_ctrl, 0, wx.ALL | wx.EXPAND, 0)
-        sizer.Add(btn, 0, wx.ALL | wx.CENTER, 0)
+        # sizer.Add(btn, 0, wx.ALL | wx.CENTER, 0)
 
         sizer.Add(self.sp, 1, wx.EXPAND)
         sizer.Add(self.sp2, 1, wx.EXPAND)
@@ -202,9 +232,10 @@ class ScrolledPanel(scrolled.ScrolledPanel):
             PCE = -PPV * JVinterp(PPV)
             FF = PCE / (JscL * VocL) * 100
             self.vals[i] = [PCE.item(), VocL.item(), JscL.item(), FF.item()]
-            self.vals[8] = [self.vals[8][0] + .125 * PCE.item(), self.vals[8][1]
-                            + .125 * VocL.item(), self.vals[8][2] +
-                            .125 * JscL.item(), self.vals[8][3] + .125 * FF.item()]
+            self.vals[8] = [self.vals[8][0] + .125 * PCE.item(),
+                            self.vals[8][1] + .125 * VocL.item(),
+                            self.vals[8][2] + .125 * JscL.item(),
+                            self.vals[8][3] + .125 * FF.item()]
         return self.vals
 
     # Function to update file names (?):
@@ -227,9 +258,9 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         #     self.list_ctrl.InsertItem(index, os.path.basename(pth))
         return self.folder_path
 
-    # Function to output file names:
+    # Function to output calculated data summary as csv file:
     def onClick(self, vals):
-        filename = "output"
+        filename = "output.csv"
         global flags
         print(flags)
         if sum(flags) != 8:
@@ -247,8 +278,9 @@ class ScrolledPanel(scrolled.ScrolledPanel):
             self.vals[8][1] /= sum(flags)
             self.vals[8][2] /= sum(flags)
             self.vals[8][3] /= sum(flags)
-        np.savetxt(filename, self.vals, delimiter=" ", fmt="%s",
-        header='PCE, VocL, Jsc, FF -- Final row is computed average')
+        np.savetxt(filename, self.vals, delimiter=",", fmt="%s",
+                   # header='PCE, VocL, Jsc, FF -- Final row is comp. average')
+                   header='PCE, VocL, Jsc, FF, Unit')
 
 
 # Genetal class for a pop-up window:
@@ -315,39 +347,70 @@ class Main(wx.Frame):
 
         self.SetBackgroundColour("#4b2e83")
 
-        # Define sizer:
+        # Define main sizer for the main frame:
         sizer = wx.BoxSizer(wx.VERTICAL)
 
-        # Define Menu bar
+        # Define Menu bar:
         menuBar = wx.MenuBar()
+
+        # Add "File" tab to the manu bar:
         menu = wx.Menu()
+        menuBar.Append(menu, "&File")
+
+        # Add "Quit" option to the File tab:
         m_exit = menu.Append(wx.ID_EXIT, "E&xit\tAlt-X",
                              "Close window and exit program.")
         self.Bind(wx.EVT_MENU, self.OnClose, m_exit)
-        menuBar.Append(menu, "&File")
 
+        # Add "Help" tab to the manu bar:
         menu = wx.Menu()
+        menuBar.Append(menu, "&Help")  # Add "help" tab to the manu bar
+
+        # Add "About" tab to the manu bar:
+        menu = wx.Menu()
+        menuBar.Append(menu, "&About")  # Add "about" tab to the manu bar
+
+        # Add "About" window option to the About tab:
         m_about = menu.Append(wx.ID_ABOUT, "&About",
                               "Information about this program")
         self.Bind(wx.EVT_MENU, self.OnAbout, m_about)
-        menuBar.Append(menu, "&Help")
+
+        # Finalize Menubar setup:
         self.SetMenuBar(menuBar)
         self.statusbar = self.CreateStatusBar()
 
+        # Define a sizer for the top panel that will have different buttons:
+        topsizer = wx.BoxSizer(wx.HORIZONTAL)
+
+        # Define "Welcome message" text:
         m_text = wx.StaticText(self, -1, "This can be a welcome message")
         m_text.SetFont(wx.Font(14, wx.SWISS, wx.NORMAL, wx.BOLD))
         m_text.SetSize(m_text.GetBestSize())
         m_text.SetForegroundColour('#ffffff')
-        sizer.Add(m_text, 0, wx.ALL, 10)
+        sizer.Add(m_text, 0, wx.ALL, 5)
 
+        # Define a button for files names:
+        m_files = wx.Button(self, label="Files")
+        m_files.Bind(wx.EVT_BUTTON, self.OnFiles)
+        topsizer.Add(m_files, 0, wx.ALL, 5)
+
+        # Define scroll bar for the Main Frame:
+        scroll = ScrolledPanel(self)
+
+        # Add button to the top panel:
+        m_export = wx.Button(self, label="Export Values")
+        m_export.Bind(wx.EVT_BUTTON, scroll.onClick)
+        topsizer.Add(m_export, 0, wx.ALL, 5)
+
+        # Define "Exit" button:
         m_close = wx.Button(self, wx.ID_CLOSE, "Exit")
         m_close.Bind(wx.EVT_BUTTON, self.OnClose)
-        # m_close.SetBackgroundColour(wx.Colour('#ffffff'))
-        # m_close.SetWindowStyleFlag(wx.SIMPLE_BORDER)
-        sizer.Add(m_close, 0, wx.ALL, 10)
+        topsizer.Add(m_close, 0, wx.ALL, 5)
 
-        # Define scroll bar
-        scroll = ScrolledPanel(self)
+        # Add top panel with  buttons to the main sizer:
+        sizer.Add(topsizer, 0, wx.ALL, 5)
+
+        # Add Scrolled Panel to the main sizer:
         sizer.Add(scroll, 1, wx.ALL | wx.EXPAND, 5)
 
         self.SetSizer(sizer)
@@ -365,9 +428,15 @@ class Main(wx.Frame):
         if result == wx.ID_OK:
             self.Destroy()
 
-    # Function for "About option in Menu
+    # Function for "About" option in Menu:
     def OnAbout(self, event):
         dlg = AboutBox()
+        dlg.ShowModal()
+        dlg.Destroy()
+
+    # Function for "Files" option in Menu:
+    def OnFiles(self, event):
+        dlg = FileNameBox()
         dlg.ShowModal()
         dlg.Destroy()
 
