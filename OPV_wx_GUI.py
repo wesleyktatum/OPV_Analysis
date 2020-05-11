@@ -126,7 +126,7 @@ class panel(wx.Panel):
 
         # Added a toggle button for including/excluding the plot from average:
         self.button = wx.ToggleButton(self, -1, "Exclude from average")
-        self.button.Bind(wx.EVT_TOGGLEBUTTON, self.OnToggle)
+        self.button.Bind(wx.EVT_TOGGLEBUTTON, self.OnClicked)
         self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
 
         # Finishing the sizer setup:
@@ -135,15 +135,9 @@ class panel(wx.Panel):
         self.Layout()
 
     # Defined a button
-    def OnClicked(self, num):
+    def OnClicked(self, event):
         global flags
-        flags[self.num] = 0
-
-    def OnToggle(self, event):
-        state = event.GetEventObject().GetValue()
-
-        if state is True:
-            global flags
+        if flags[self.num] == 1:
             flags[self.num] = 0
             event.GetEventObject().SetLabel("Include in average")
         else:
@@ -232,10 +226,10 @@ class ScrolledPanel(scrolled.ScrolledPanel):
             PCE = -PPV * JVinterp(PPV)
             FF = PCE / (JscL * VocL) * 100
             self.vals[i] = [PCE.item(), VocL.item(), JscL.item(), FF.item()]
-            self.vals[8] = [self.vals[8][0] + .125 * PCE.item(),
-                            self.vals[8][1] + .125 * VocL.item(),
-                            self.vals[8][2] + .125 * JscL.item(),
-                            self.vals[8][3] + .125 * FF.item()]
+            # self.vals[8] = [self.vals[8][0] + .125 * PCE.item(),
+            #                 self.vals[8][1] + .125 * VocL.item(),
+            #                 self.vals[8][2] + .125 * JscL.item(),
+            #                 self.vals[8][3] + .125 * FF.item()]
         return self.vals
 
     # Function to update file names (?):
@@ -263,21 +257,32 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         filename = "output.csv"
         global flags
         print(flags)
-        if sum(flags) != 8:
-            self.vals[8][0] *= 8
-            self.vals[8][1] *= 8
-            self.vals[8][2] *= 8
-            self.vals[8][3] *= 8
-            for i in range(0, 8):
-                if flags[i] == 0:
-                    self.vals[8][0] -= self.vals[i][0]
-                    self.vals[8][1] -= self.vals[i][1]
-                    self.vals[8][2] -= self.vals[i][2]
-                    self.vals[8][3] -= self.vals[i][3]
-            self.vals[8][0] /= sum(flags)
-            self.vals[8][1] /= sum(flags)
-            self.vals[8][2] /= sum(flags)
-            self.vals[8][3] /= sum(flags)
+        for i in range(0, 8):
+            if flags[i] == 1:
+                self.vals[8][0] += self.vals[i][0]
+                self.vals[8][1] += self.vals[i][1]
+                self.vals[8][2] += self.vals[i][2]
+                self.vals[8][3] += self.vals[i][3]
+        self.vals[8][0] /= sum(flags)
+        self.vals[8][1] /= sum(flags)
+        self.vals[8][2] /= sum(flags)
+        self.vals[8][3] /= sum(flags)
+
+        # if sum(flags) != 8:
+        #     self.vals[8][0] *= 8
+        #     self.vals[8][1] *= 8
+        #     self.vals[8][2] *= 8
+        #     self.vals[8][3] *= 8
+        #     for i in range(0, 8):
+        #         if flags[i] == 0:
+        #             self.vals[8][0] -= self.vals[i][0]
+        #             self.vals[8][1] -= self.vals[i][1]
+        #             self.vals[8][2] -= self.vals[i][2]
+        #             self.vals[8][3] -= self.vals[i][3]
+        #     self.vals[8][0] /= sum(flags)
+        #     self.vals[8][1] /= sum(flags)
+        #     self.vals[8][2] /= sum(flags)
+        #     self.vals[8][3] /= sum(flags)
         np.savetxt(filename, self.vals, delimiter=",", fmt="%s",
                    # header='PCE, VocL, Jsc, FF -- Final row is comp. average')
                    header='PCE, VocL, Jsc, FF, Unit')
