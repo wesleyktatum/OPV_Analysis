@@ -1,1 +1,4 @@
 *output.csv
+*.ipynb_checkpoints
+*.DS_Store
+*__pycache__
