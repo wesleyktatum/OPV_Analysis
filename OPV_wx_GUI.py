@@ -257,6 +257,36 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         filename = "output.csv"
         global flags
         print(flags)
+        # Calculating the average of only "included" plots using the
+        # "numpy dot product" finction to find a dot product  between a
+        # given column and flag values (either 0 or 1):
+        self.vals[8][0] = np.dot([item[0] for item in self.vals][0:8],
+                                 flags)/sum(flags)
+        self.vals[8][1] = np.dot([item[1] for item in self.vals][0:8],
+                                 flags)/sum(flags)
+        self.vals[8][2] = np.dot([item[2] for item in self.vals][0:8],
+                                 flags)/sum(flags)
+        self.vals[8][3] = np.dot([item[3] for item in self.vals][0:8],
+                                 flags)/sum(flags)
+        # In order to add a column of device index including the 'average' I am
+        # converting the data type to string and self.vals to array:
+        self.vals = np.array(self.vals, dtype=str)
+        self.vals = np.insert(self.vals, [0],
+                              [['1'], ['2'], ['3'], ['4'], ['5'], ['6'],
+                               ['7'], ['8'], ['Average']],
+                              axis=1)
+
+        '''
+        Second option for the same calculation (currently commented out:
+        # First creating zero values for the average. Without this step after
+        # each click and un-click of the "include/exlude" button and export,
+        # the new everage will incorporate not only charts with flag=1,
+        # but also the previous average value:
+
+        self.vals[8][0] = 0
+        self.vals[8][1] = 0
+        self.vals[8][2] = 0
+        self.vals[8][3] = 0
         for i in range(0, 8):
             if flags[i] == 1:
                 self.vals[8][0] += self.vals[i][0]
@@ -267,6 +297,7 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         self.vals[8][1] /= sum(flags)
         self.vals[8][2] /= sum(flags)
         self.vals[8][3] /= sum(flags)
+        '''
 
         # if sum(flags) != 8:
         #     self.vals[8][0] *= 8
@@ -283,9 +314,8 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         #     self.vals[8][1] /= sum(flags)
         #     self.vals[8][2] /= sum(flags)
         #     self.vals[8][3] /= sum(flags)
-        np.savetxt(filename, self.vals, delimiter=",", fmt="%s",
-                   # header='PCE, VocL, Jsc, FF -- Final row is comp. average')
-                   header='PCE, VocL, Jsc, FF, Unit')
+        np.savetxt(filename, self.vals, delimiter=",", fmt='%s',
+                   header='Device, PCE, Voc, Jsc, FF')
 
 
 # Genetal class for a pop-up window:
