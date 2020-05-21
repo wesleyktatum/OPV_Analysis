@@ -4,6 +4,9 @@ from matplotlib.backends.backend_wx import NavigationToolbar2Wx
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 from os import listdir
+from PyQt5 import QtWebEngineWidgets
+from PyQt5.QtCore import QUrl
+from PyQt5.QtWidgets import QApplication
 from scipy import stats
 from scipy.interpolate import interp1d
 from scipy.optimize import fmin
@@ -21,6 +24,7 @@ import numpy as np
 import os
 import pandas as pd
 import plotly.graph_objs as go
+import plotly.offline
 import sys
 import wx
 import wx.html
@@ -109,10 +113,51 @@ class panel(wx.Panel):
 
         # Defining sizer:
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.hsizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # Defining the whole plotting area:
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.sizer.Add(self.canvas, 1, wx.ALL | wx.ALIGN_TOP | wx.EXPAND)
+
+        # Defining a plotly plot for zoomed window:
+        self.fig = go.Figure()
+        self.fig.add_scatter(x=data[:, 0],
+                             y=data[:, 2],
+                             mode='lines+markers',
+                             name='JV Curve',
+                             marker_color='rgba(51, 0, 111, 0.2)',
+                             marker_size=10,
+                             marker_line_width=2)
+        self.fig.update_layout(title={'text': "JV Curve",
+                                      'x': 0.5,
+                                      'y': 0.95,
+                                      'xanchor': 'center',
+                                      'yanchor': 'top'},
+                               xaxis=dict(range=[-0.2, 0.8],
+                                          showgrid=True,
+                                          zeroline=True,
+                                          zerolinewidth=2,
+                                          zerolinecolor='#4b2e83',
+                                          title='Voltage [V]',
+                                          linecolor='#4b2e83',
+                                          linewidth=2,
+                                          gridwidth=1,
+                                          gridcolor='#b7a57a'),
+                               yaxis=dict(range=[-5, 20],
+                                          showgrid=True,
+                                          zeroline=True,
+                                          zerolinewidth=2,
+                                          zerolinecolor='#4b2e83',
+                                          title='Current Density [mA/cm^2]',
+                                          linecolor='#4b2e83',
+                                          linewidth=2,
+                                          gridwidth=1,
+                                          gridcolor='#b7a57a'),
+                               font=dict(family='Rockwell',
+                                         size=18,
+                                         color='#4b2e83'),
+                               paper_bgcolor='gainsboro',
+                               plot_bgcolor='#ffffff')
 
         # Added a checkbox for future including/excluding from calculation
         # self.checkbox = wx.CheckBox(self, label='Check Box')
@@ -120,14 +165,16 @@ class panel(wx.Panel):
         # self.sizer.Add(self.checkbox, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
 
         # Added a button for excluding the plot from average:
-        # self.button = wx.Button(self, -1, "Exclude from average")
-        # self.button.Bind(wx.EVT_BUTTON, self.OnClicked)
-        # self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+        self.zbutton = wx.Button(self, -1, "Zoom-in")
+        self.zbutton.Bind(wx.EVT_BUTTON, self.OnZoom)
+        self.hsizer.Add(self.zbutton, 0, wx.LEFT, 5)
 
         # Added a toggle button for including/excluding the plot from average:
         self.button = wx.ToggleButton(self, -1, "Exclude from average")
         self.button.Bind(wx.EVT_TOGGLEBUTTON, self.OnClicked)
-        self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+        self.hsizer.Add(self.button, 0, wx.LEFT, 5)
+
+        self.sizer.Add(self.hsizer, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
 
         # Finishing the sizer setup:
         self.SetSizer(self.sizer)
@@ -148,6 +195,32 @@ class panel(wx.Panel):
     # def onChecked(self, event):
         # checkbox = event.GetEventObject()
         # print(checkbox.GetLabel(), ' is clicked', checkbox.GetValue())
+
+    def OnZoom(self, event):
+        self.win = PlotlyViewer(self.fig)
+
+
+# Class that makes the plotly zoom-in chart to appear:
+class PlotlyViewer(QtWebEngineWidgets.QWebEngineView):
+    def __init__(self, fig, exec=True):
+        # Create a QApplication instance or use the existing one if it exists
+        self.app = QApplication.instance() if QApplication.instance() \
+                   else QApplication(sys.argv)
+
+        super().__init__()
+
+        self.file_path = os.path.abspath(os.path.join(os.path.dirname(
+                                                      __file__), "temp.html"))
+        plotly.offline.plot(fig, filename=self.file_path, auto_open=False)
+        self.load(QUrl.fromLocalFile(self.file_path))
+        self.setWindowTitle("Zoom-in")
+        self.show()
+
+        if exec:
+            self.app.exec_()
+
+    def closeEvent(self, event):
+        os.remove(self.file_path)
 
 
 # Created a scrollable panel of 8 panels:
@@ -257,9 +330,9 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         filename = "output.csv"
         global flags
         print(flags)
-        # Calculating the average of only "included" plots using the
-        # "numpy dot product" finction to find a dot product  between a
-        # given column and flag values (either 0 or 1):
+        # Calculating the average of only "included" plots
+        # Way # 1: using the "numpy dot product" finction to find a dot product
+        # between a given column and flag values (either 0 or 1):
         self.vals[8][0] = np.dot([item[0] for item in self.vals][0:8],
                                  flags)/sum(flags)
         self.vals[8][1] = np.dot([item[1] for item in self.vals][0:8],
@@ -268,25 +341,18 @@ class ScrolledPanel(scrolled.ScrolledPanel):
                                  flags)/sum(flags)
         self.vals[8][3] = np.dot([item[3] for item in self.vals][0:8],
                                  flags)/sum(flags)
-        # In order to add a column of device index including the 'average' I am
-        # converting the data type to string and self.vals to array:
-        self.vals = np.array(self.vals, dtype=str)
-        self.vals = np.insert(self.vals, [0],
-                              [['1'], ['2'], ['3'], ['4'], ['5'], ['6'],
-                               ['7'], ['8'], ['Average']],
-                              axis=1)
 
-        '''
-        Second option for the same calculation (currently commented out:
+        # Way # 2:
         # First creating zero values for the average. Without this step after
         # each click and un-click of the "include/exlude" button and export,
         # the new everage will incorporate not only charts with flag=1,
         # but also the previous average value:
-
+        """
         self.vals[8][0] = 0
         self.vals[8][1] = 0
         self.vals[8][2] = 0
         self.vals[8][3] = 0
+
         for i in range(0, 8):
             if flags[i] == 1:
                 self.vals[8][0] += self.vals[i][0]
@@ -297,7 +363,19 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         self.vals[8][1] /= sum(flags)
         self.vals[8][2] /= sum(flags)
         self.vals[8][3] /= sum(flags)
-        '''
+        """
+
+        # In order to add a column of device index including the 'average' I am
+        # converting the data type to string and self.vals to array:
+        self.vals = np.array(self.vals)
+        self.vals = np.array(self.vals)
+        if self.vals.shape[1] == 4:
+            self.vals = np.append(self.vals,
+                                  [[1], [2], [3], [4], [5], [6],
+                                   [7], [8], [0]],
+                                   axis=1)
+        else:
+            pass
 
         # if sum(flags) != 8:
         #     self.vals[8][0] *= 8
@@ -314,8 +392,13 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         #     self.vals[8][1] /= sum(flags)
         #     self.vals[8][2] /= sum(flags)
         #     self.vals[8][3] /= sum(flags)
-        np.savetxt(filename, self.vals, delimiter=",", fmt='%s',
-                   header='Device, PCE, Voc, Jsc, FF')
+        output = pd.DataFrame(self.vals,
+                              columns=['PCE', 'Voc', 'Jsc', 'FF', 'Device'],
+                              dtype=str)
+        output['Device'].iloc[8] = 'Average'
+        output.to_csv(filename)
+        # np.savetxt(filename, output, delimiter=",", fmt='%s',
+        #            header='PCE, Voc, Jsc, FF, Device')
 
 
 # Genetal class for a pop-up window:
