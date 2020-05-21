@@ -32,7 +32,6 @@ import wx.lib.agw.multidirdialog as MDD
 import wx.lib.scrolledpanel as scrolled
 matplotlib.use('WXAgg')
 
-
 # This is a text to be used in a "About" menu button:
 aboutText = "<p>This program is a part of Luscombe Group OPV Analysis project \
 in University of Washington, Seattle. It is running on version %(wxpy)s \
@@ -51,10 +50,7 @@ class panel(wx.Panel):
 
         self.SetMinSize((500, 350))
         self.SetBackgroundColour("#b7a57a")
-        self.number = number  # This will serve as an index for our plots
-        global panel_data
-        panel_data = data
-        self.vals = vals
+        self.num = number  # This will serve as an index for our plots
 
         # Defining data for plots:
         PCE = vals[0]
@@ -87,8 +83,7 @@ class panel(wx.Panel):
         plt.subplots_adjust(bottom=0.18)
 
         # This is the JV curve drawn from the actual data:
-        self.axes.plot(data[:, 0], data[:, 2], linewidth=2,
-                       marker='o', markersize=5, zorder=4)
+        self.axes.plot(data[:, 0], data[:, 2], linewidth=2, zorder=4)
 
         # This is to highlight x-Axis on the plot area:
         self.axes.plot([-0.2, 0.8], [0, 0], color='k', linestyle='-',
@@ -124,7 +119,7 @@ class panel(wx.Panel):
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.sizer.Add(self.canvas, 1, wx.ALL | wx.ALIGN_TOP | wx.EXPAND)
 
-        # Defining a plotly plot for zoomed wendow:
+        # Defining a plotly plot for zoomed window:
         self.fig = go.Figure()
         self.fig.add_scatter(x=data[:, 0],
                              y=data[:, 2],
@@ -188,7 +183,6 @@ class panel(wx.Panel):
 
     # Defined a button
     def OnClicked(self, event):
-        print("event is", event)
         global flags
         if flags[self.num] == 1:
             flags[self.num] = 0
@@ -204,17 +198,6 @@ class panel(wx.Panel):
 
     def OnZoom(self, event):
         self.win = PlotlyViewer(self.fig)
-
-
-# Genetal class for a pop-up window:
-class HtmlWindow(wx.html.HtmlWindow):
-    def __init__(self, parent, id, size=(600, 400)):
-        wx.html.HtmlWindow.__init__(self, parent, id, size=size)
-        if "gtk2" in wx.PlatformInfo:
-            self.SetStandardFonts()
-
-    def OnLinkClicked(self, link):
-        wx.LaunchDefaultBrowser(link.GetHref())
 
 
 # Class that makes the plotly zoom-in chart to appear:
@@ -347,9 +330,9 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         filename = "output.csv"
         global flags
         print(flags)
-        # Calculating the average of only "included" plots using the
-        # "numpy dot product" finction to find a dot product  between a
-        # given column and flag values (either 0 or 1):
+        # Calculating the average of only "included" plots
+        # Way # 1: using the "numpy dot product" finction to find a dot product
+        # between a given column and flag values (either 0 or 1):
         self.vals[8][0] = np.dot([item[0] for item in self.vals][0:8],
                                  flags)/sum(flags)
         self.vals[8][1] = np.dot([item[1] for item in self.vals][0:8],
@@ -358,25 +341,18 @@ class ScrolledPanel(scrolled.ScrolledPanel):
                                  flags)/sum(flags)
         self.vals[8][3] = np.dot([item[3] for item in self.vals][0:8],
                                  flags)/sum(flags)
-        # In order to add a column of device index including the 'average' I am
-        # converting the data type to string and self.vals to array:
-        self.vals = np.array(self.vals, dtype=str)
-        self.vals = np.insert(self.vals, [0],
-                              [['1'], ['2'], ['3'], ['4'], ['5'], ['6'],
-                               ['7'], ['8'], ['Average']],
-                              axis=1)
 
-        '''
-        Second option for the same calculation (currently commented out:
+        # Way # 2:
         # First creating zero values for the average. Without this step after
         # each click and un-click of the "include/exlude" button and export,
         # the new everage will incorporate not only charts with flag=1,
         # but also the previous average value:
-
+        """
         self.vals[8][0] = 0
         self.vals[8][1] = 0
         self.vals[8][2] = 0
         self.vals[8][3] = 0
+
         for i in range(0, 8):
             if flags[i] == 1:
                 self.vals[8][0] += self.vals[i][0]
@@ -387,7 +363,19 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         self.vals[8][1] /= sum(flags)
         self.vals[8][2] /= sum(flags)
         self.vals[8][3] /= sum(flags)
-        '''
+        """
+
+        # In order to add a column of device index including the 'average' I am
+        # converting the data type to string and self.vals to array:
+        self.vals = np.array(self.vals)
+        self.vals = np.array(self.vals)
+        if self.vals.shape[1] == 4:
+            self.vals = np.append(self.vals,
+                                  [[1], [2], [3], [4], [5], [6],
+                                   [7], [8], [0]],
+                                   axis=1)
+        else:
+            pass
 
         # if sum(flags) != 8:
         #     self.vals[8][0] *= 8
@@ -404,10 +392,24 @@ class ScrolledPanel(scrolled.ScrolledPanel):
         #     self.vals[8][1] /= sum(flags)
         #     self.vals[8][2] /= sum(flags)
         #     self.vals[8][3] /= sum(flags)
-        np.savetxt(filename, self.vals, delimiter=",", fmt='%s',
-                   header='Device, PCE, Voc, Jsc, FF')
+        output = pd.DataFrame(self.vals,
+                              columns=['PCE', 'Voc', 'Jsc', 'FF', 'Device'],
+                              dtype=str)
+        output['Device'].iloc[8] = 'Average'
+        output.to_csv(filename)
+        # np.savetxt(filename, output, delimiter=",", fmt='%s',
+        #            header='PCE, Voc, Jsc, FF, Device')
 
 
+# Genetal class for a pop-up window:
+class HtmlWindow(wx.html.HtmlWindow):
+    def __init__(self, parent, id, size=(600, 400)):
+        wx.html.HtmlWindow.__init__(self, parent, id, size=size)
+        if "gtk2" in wx.PlatformInfo:
+            self.SetStandardFonts()
+
+    def OnLinkClicked(self, link):
+        wx.LaunchDefaultBrowser(link.GetHref())
 
 
 # A class for a "about" message box:
@@ -499,8 +501,7 @@ class Main(wx.Frame):
         topsizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # Define "Welcome message" text:
-        m_text = wx.StaticText(self, -1,
-                               "Welcome to the OPV JV-curve analyzer!")
+        m_text = wx.StaticText(self, -1, "This can be a welcome message")
         m_text.SetFont(wx.Font(14, wx.SWISS, wx.NORMAL, wx.BOLD))
         m_text.SetSize(m_text.GetBestSize())
         m_text.SetForegroundColour('#ffffff')
