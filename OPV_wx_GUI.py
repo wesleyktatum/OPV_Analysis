@@ -4,6 +4,9 @@ from matplotlib.backends.backend_wx import NavigationToolbar2Wx
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 from os import listdir
+from PyQt5 import QtWebEngineWidgets
+from PyQt5.QtCore import QUrl
+from PyQt5.QtWidgets import QApplication
 from scipy import stats
 from scipy.interpolate import interp1d
 from scipy.optimize import fmin
@@ -21,12 +24,14 @@ import numpy as np
 import os
 import pandas as pd
 import plotly.graph_objs as go
+import plotly.offline
 import sys
 import wx
 import wx.html
 import wx.lib.agw.multidirdialog as MDD
 import wx.lib.scrolledpanel as scrolled
 matplotlib.use('WXAgg')
+
 
 # This is a text to be used in a "About" menu button:
 aboutText = "<p>This program is a part of Luscombe Group OPV Analysis project \
@@ -46,7 +51,10 @@ class panel(wx.Panel):
 
         self.SetMinSize((500, 350))
         self.SetBackgroundColour("#b7a57a")
-        self.num = number  # This will serve as an index for our plots
+        self.number = number  # This will serve as an index for our plots
+        global panel_data
+        panel_data = data
+        self.vals = vals
 
         # Defining data for plots:
         PCE = vals[0]
@@ -79,7 +87,8 @@ class panel(wx.Panel):
         plt.subplots_adjust(bottom=0.18)
 
         # This is the JV curve drawn from the actual data:
-        self.axes.plot(data[:, 0], data[:, 2], linewidth=2, zorder=4)
+        self.axes.plot(data[:, 0], data[:, 2], linewidth=2,
+                       marker='o', markersize=5, zorder=4)
 
         # This is to highlight x-Axis on the plot area:
         self.axes.plot([-0.2, 0.8], [0, 0], color='k', linestyle='-',
@@ -109,10 +118,51 @@ class panel(wx.Panel):
 
         # Defining sizer:
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.hsizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # Defining the whole plotting area:
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.sizer.Add(self.canvas, 1, wx.ALL | wx.ALIGN_TOP | wx.EXPAND)
+
+        # Defining a plotly plot for zoomed wendow:
+        self.fig = go.Figure()
+        self.fig.add_scatter(x=data[:, 0],
+                             y=data[:, 2],
+                             mode='lines+markers',
+                             name='JV Curve',
+                             marker_color='rgba(51, 0, 111, 0.2)',
+                             marker_size=10,
+                             marker_line_width=2)
+        self.fig.update_layout(title={'text': "JV Curve",
+                                      'x': 0.5,
+                                      'y': 0.95,
+                                      'xanchor': 'center',
+                                      'yanchor': 'top'},
+                               xaxis=dict(range=[-0.2, 0.8],
+                                          showgrid=True,
+                                          zeroline=True,
+                                          zerolinewidth=2,
+                                          zerolinecolor='#4b2e83',
+                                          title='Voltage [V]',
+                                          linecolor='#4b2e83',
+                                          linewidth=2,
+                                          gridwidth=1,
+                                          gridcolor='#b7a57a'),
+                               yaxis=dict(range=[-5, 20],
+                                          showgrid=True,
+                                          zeroline=True,
+                                          zerolinewidth=2,
+                                          zerolinecolor='#4b2e83',
+                                          title='Current Density [mA/cm^2]',
+                                          linecolor='#4b2e83',
+                                          linewidth=2,
+                                          gridwidth=1,
+                                          gridcolor='#b7a57a'),
+                               font=dict(family='Rockwell',
+                                         size=18,
+                                         color='#4b2e83'),
+                               paper_bgcolor='gainsboro',
+                               plot_bgcolor='#ffffff')
 
         # Added a checkbox for future including/excluding from calculation
         # self.checkbox = wx.CheckBox(self, label='Check Box')
@@ -120,14 +170,16 @@ class panel(wx.Panel):
         # self.sizer.Add(self.checkbox, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
 
         # Added a button for excluding the plot from average:
-        # self.button = wx.Button(self, -1, "Exclude from average")
-        # self.button.Bind(wx.EVT_BUTTON, self.OnClicked)
-        # self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+        self.zbutton = wx.Button(self, -1, "Zoom-in")
+        self.zbutton.Bind(wx.EVT_BUTTON, self.OnZoom)
+        self.hsizer.Add(self.zbutton, 0, wx.LEFT, 5)
 
         # Added a toggle button for including/excluding the plot from average:
         self.button = wx.ToggleButton(self, -1, "Exclude from average")
         self.button.Bind(wx.EVT_TOGGLEBUTTON, self.OnClicked)
-        self.sizer.Add(self.button, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
+        self.hsizer.Add(self.button, 0, wx.LEFT, 5)
+
+        self.sizer.Add(self.hsizer, 0, wx.ALIGN_RIGHT | wx.ALIGN_BOTTOM)
 
         # Finishing the sizer setup:
         self.SetSizer(self.sizer)
@@ -136,6 +188,7 @@ class panel(wx.Panel):
 
     # Defined a button
     def OnClicked(self, event):
+        print("event is", event)
         global flags
         if flags[self.num] == 1:
             flags[self.num] = 0
@@ -148,6 +201,43 @@ class panel(wx.Panel):
     # def onChecked(self, event):
         # checkbox = event.GetEventObject()
         # print(checkbox.GetLabel(), ' is clicked', checkbox.GetValue())
+
+    def OnZoom(self, event):
+        self.win = PlotlyViewer(self.fig)
+
+
+# Genetal class for a pop-up window:
+class HtmlWindow(wx.html.HtmlWindow):
+    def __init__(self, parent, id, size=(600, 400)):
+        wx.html.HtmlWindow.__init__(self, parent, id, size=size)
+        if "gtk2" in wx.PlatformInfo:
+            self.SetStandardFonts()
+
+    def OnLinkClicked(self, link):
+        wx.LaunchDefaultBrowser(link.GetHref())
+
+
+# Class that makes the plotly zoom-in chart to appear:
+class PlotlyViewer(QtWebEngineWidgets.QWebEngineView):
+    def __init__(self, fig, exec=True):
+        # Create a QApplication instance or use the existing one if it exists
+        self.app = QApplication.instance() if QApplication.instance() \
+                   else QApplication(sys.argv)
+
+        super().__init__()
+
+        self.file_path = os.path.abspath(os.path.join(os.path.dirname(
+                                                      __file__), "temp.html"))
+        plotly.offline.plot(fig, filename=self.file_path, auto_open=False)
+        self.load(QUrl.fromLocalFile(self.file_path))
+        self.setWindowTitle("Zoom-in")
+        self.show()
+
+        if exec:
+            self.app.exec_()
+
+    def closeEvent(self, event):
+        os.remove(self.file_path)
 
 
 # Created a scrollable panel of 8 panels:
@@ -318,15 +408,6 @@ class ScrolledPanel(scrolled.ScrolledPanel):
                    header='Device, PCE, Voc, Jsc, FF')
 
 
-# Genetal class for a pop-up window:
-class HtmlWindow(wx.html.HtmlWindow):
-    def __init__(self, parent, id, size=(600, 400)):
-        wx.html.HtmlWindow.__init__(self, parent, id, size=size)
-        if "gtk2" in wx.PlatformInfo:
-            self.SetStandardFonts()
-
-    def OnLinkClicked(self, link):
-        wx.LaunchDefaultBrowser(link.GetHref())
 
 
 # A class for a "about" message box:
@@ -418,7 +499,8 @@ class Main(wx.Frame):
         topsizer = wx.BoxSizer(wx.HORIZONTAL)
 
         # Define "Welcome message" text:
-        m_text = wx.StaticText(self, -1, "This can be a welcome message")
+        m_text = wx.StaticText(self, -1,
+                               "Welcome to the OPV JV-curve analyzer!")
         m_text.SetFont(wx.Font(14, wx.SWISS, wx.NORMAL, wx.BOLD))
         m_text.SetSize(m_text.GetBestSize())
         m_text.SetForegroundColour('#ffffff')
